@@ -1,0 +1,5 @@
+# Created by .ignore support plugin (hsz.mobi)
+/tmp/
+.idea/
+geckodriver.log
+*.csv
