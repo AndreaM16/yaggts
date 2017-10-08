@@ -3,12 +3,13 @@ package parse
 import (
 	"time"
 	"os"
-	"fmt"
 	"encoding/csv"
 	"bufio"
 	"io"
 	"strconv"
 	"github.com/go-errors/errors"
+	"github.com/andream16/yaggts/model"
+	"strings"
 )
 
 const csvName = "multiTimeline.csv"
@@ -17,77 +18,102 @@ const internalIndex = 5
 const weekDaysNumber = 7
 var nextDay = [4]int{ 0, 0, 1, -1 }
 
-type CsvEntry struct {
-	Date time.Time `json:"date"`
-	Value float64 `json:"value"`
+func GetTrend() ([]model.DbEntry, error) {
+	entries := parseCsv(); if len(entries) > 0 {
+		return fillMissingDays(entries)
+	}
+	return []model.DbEntry{}, errors.New("no entries found for last research")
 }
 
-func GetTrend() ([]CsvEntry, error) {
-	entries := parseCsv()
+// Given a slice of weekly entries, fills missing days between each couple of them
+// with a custom average in weekly format only if the latter have different values,
+// otherwise they get filled with the previous value.
+// - Sunday is the current entry,
+// - Wednesday is the average between Sunday and next Sunday
+// - Saturday is the average between Wednesday and next Sunday
+// - Other days are filled using two indexes, j = 1 and k = 5
+//     k = 5; for j = 1; j <= 2; j ++
+//       elm[j] = avg(elm[j-1], elm[3])
+//       elm[k] = avg(elm[k+1], elm[3]); k--
+// Converts each date time.Time in string format yy-mm-dd for Cassandra.
+func fillMissingDays(entries []model.CsvEntry) ([]model.DbEntry, error) {
 	entriesNumber := len(entries)
 	if entriesNumber == 0 {
-		return entries, errors.New("No entries were appended.")
+		return []model.DbEntry{}, errors.New("no entries were appended")
 	}
-	var trend []CsvEntry
-
+	var trend []model.CsvEntry
 	for i := 0; i <= entriesNumber - 2; i++ {
-		tmpTrend := make([]CsvEntry, 7)
+		tmpTrend := make([]model.CsvEntry, 7)
 		tmpTrend[0] = entries[i]
 		if entries[i].Value != entries[i+1].Value {
-			var decrementIndex = internalIndex
-			tmpTrend[3] = CsvEntry{
+			var k = internalIndex
+			tmpTrend[3] = model.CsvEntry{
 				Value: average(entries[i].Value, entries[i+1].Value),
 				Date: entries[i].Date.AddDate(nextDay[0], nextDay[1], nextDay[2] + 2),
 			}
-			tmpTrend[6] = CsvEntry{
+			tmpTrend[6] = model.CsvEntry{
 				Value: average(entries[i+1].Value, tmpTrend[3].Value),
 				Date: entries[i+1].Date.AddDate(nextDay[0], nextDay[1], nextDay[3]),
 			}
 			for j := 1; j <= 2; j++ {
-				tmpTrend[j] = CsvEntry{
+				tmpTrend[j] = model.CsvEntry{
 					Value: average(tmpTrend[j-1].Value, tmpTrend[3].Value),
 					Date: tmpTrend[j-1].Date.AddDate(nextDay[0], nextDay[1], nextDay[2]),
 				}
-				tmpTrend[decrementIndex] = CsvEntry{
-					Value: average(tmpTrend[decrementIndex + 1].Value, tmpTrend[3].Value),
-					Date: tmpTrend[decrementIndex + 1].Date.AddDate(nextDay[0], nextDay[1], nextDay[3]),
+				tmpTrend[k] = model.CsvEntry{
+					Value: average(tmpTrend[k+1].Value, tmpTrend[3].Value),
+					Date:  tmpTrend[k+1].Date.AddDate(nextDay[0], nextDay[1], nextDay[3]),
 				}
-				decrementIndex--
+				k--
 			}
 		} else {
-			tmpTrend[0] = CsvEntry{Value: entries[i].Value, Date: entries[i].Date.AddDate(nextDay[0], nextDay[1], nextDay[2])}
+			tmpTrend[0] = model.CsvEntry{Value: entries[i].Value, Date: entries[i].Date.AddDate(nextDay[0], nextDay[1], nextDay[2])}
 			for k := 1; k <= weekDaysNumber - 1; k++ {
-				tmpTrend[k] = CsvEntry{ Value: tmpTrend[k-1].Value, Date: tmpTrend[k-1].Date.AddDate(nextDay[0], nextDay[1], nextDay[2])}
+				tmpTrend[k] = model.CsvEntry{ Value: tmpTrend[k-1].Value, Date: tmpTrend[k-1].Date.AddDate(nextDay[0], nextDay[1], nextDay[2])}
 			}
 		}
 		trend = append(trend, tmpTrend...)
 	}; if len(trend) == 0 {
-		return trend, errors.New("Trend is empty")
+		return []model.DbEntry{}, errors.New("trend is empty")
 	}
-	trend = append(trend, CsvEntry{ Value: entries[len(entries) - 1].Value, Date:  entries[len(entries) - 1].Date })
-	for _, k := range trend {
-		fmt.Println(k.Value, k.Date)
+	trend = append(trend, model.CsvEntry{ Value: entries[len(entries) - 1].Value, Date:  entries[len(entries) - 1].Date })
+	finalTrend := []model.DbEntry{}
+	for _, t := range trend {
+		finalTrend = append(finalTrend, dateToString(t))
 	}
-	return trend, nil
+	return finalTrend, nil
 }
 
+// Returns a date in string format yy-mm-dd
+func dateToString(entry model.CsvEntry) model.DbEntry {
+	dateEntries := make([]string, 3)
+	dateEntries[0] = strconv.Itoa(entry.Date.Year())
+	dateEntries[1] = strconv.Itoa(int(entry.Date.Month())); if len(dateEntries[1]) == 1 { dateEntries[1] = "0" + dateEntries[1] }
+	dateEntries[2] = strconv.Itoa(entry.Date.Day()); if len(dateEntries[2]) == 1 { dateEntries[2] = "0" + dateEntries[2] }
+	m := model.DbEntry{ Value: entry.Value, Date: strings.Join(dateEntries, "-") }
+	return m
+}
+
+// Returns the average of two float64.
 func average(f float64, s float64) float64 {
 	return (float64(f) + float64(s)) / float64(2)
 }
 
-func parseCsv() []CsvEntry {
+// Parses a CSV skipping first 3 rows. It returns a slice of csv entries with Date time.Time and Value float64.
+// Format is only weekly.
+func parseCsv() []model.CsvEntry {
 	csvFile, csvFileErr := os.Open(csvName); if csvFileErr != nil {
-		fmt.Println("Unable to open csv.")
+		return []model.CsvEntry{}
 	}
 	reader := csv.NewReader(bufio.NewReader(csvFile))
-	var trend []CsvEntry
+	var trend []model.CsvEntry
 	var index = 0
 	for {
 		line, readerErr := reader.Read(); if readerErr == io.EOF {
 			break
 		}
 		if index > 1 {
-			trend = append(trend, CsvEntry{
+			trend = append(trend, model.CsvEntry{
 				Date: func (val string) time.Time {
 					t, _ := time.Parse(timeLayout, val); return t
 				}(line[0]),
