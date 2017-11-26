@@ -5,7 +5,7 @@ import (
 	"os/exec"
 )
 
-var argv = [2]string{"python", "/home/andream16/Documents/devStuff/yaggts-selenium/main.py"}
+var argv = [2]string{"python", "/home/pippo/Documents/ARE/yaggts-selenium/main.py"}
 
 // Takes a query, calls a python script to download a csv from Google Trends.
 // Returns true if all went ok, false otherwise.
