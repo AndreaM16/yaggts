@@ -8,7 +8,7 @@ import (
 	"io"
 	"strconv"
 	"github.com/go-errors/errors"
-	"github.com/andream16/yaggts/model"
+	"github.com/AndreaM16/yaggts/model"
 	"strings"
 )
 
@@ -68,7 +68,7 @@ func fillMissingDays(entries []model.CsvEntry) ([]model.DbEntry, error) {
 			}
 		} else {
 			tmpTrend[0] = model.CsvEntry{Value: entries[i].Value, Date: entries[i].Date.AddDate(nextDay[0], nextDay[1], nextDay[2])}
-			for k := 1; k <= weekDaysNumber - 1; k++ {
+			for k := 1; k < weekDaysNumber - 1; k++ {
 				tmpTrend[k] = model.CsvEntry{ Value: tmpTrend[k-1].Value, Date: tmpTrend[k-1].Date.AddDate(nextDay[0], nextDay[1], nextDay[2])}
 			}
 		}

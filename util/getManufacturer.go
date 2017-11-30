@@ -1,7 +1,7 @@
 package util
 
 import (
-	"github.com/andream16/yaggts/model"
+	"github.com/AndreaM16/yaggts/model"
 	"net/http"
 	"io/ioutil"
 	"encoding/json"
