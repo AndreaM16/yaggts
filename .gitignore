@@ -3,3 +3,4 @@
 .idea/
 geckodriver.log
 *.csv
+.~lock.multiTimeline.csv#
