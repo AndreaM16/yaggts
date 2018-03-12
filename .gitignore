@@ -4,3 +4,4 @@
 geckodriver.log
 *.csv
 .~lock.multiTimeline.csv#
+multiline.csv
