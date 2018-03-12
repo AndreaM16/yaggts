@@ -1,12 +1,12 @@
 package model
 
-type DbEntry struct {
+type TrendEntry struct {
 	Value float64 `json:"value"`
 	Date string `json:"date"`
 }
 
 
 type Trend struct {
-	Manufacturer string `json:"manufacturer,omitempty"`
-	Trend []DbEntry
+	Query string `json:"query,omitempty"`
+	Trend []TrendEntry
 }

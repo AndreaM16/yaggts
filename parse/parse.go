@@ -18,11 +18,11 @@ const internalIndex = 5
 const weekDaysNumber = 7
 var nextDay = [4]int{ 0, 0, 1, -1 }
 
-func GetTrend() ([]model.DbEntry, error) {
+func GetTrend() ([]model.TrendEntry, error) {
 	entries := parseCsv(); if len(entries) > 0 {
 		return fillMissingDays(entries)
 	}
-	return []model.DbEntry{}, errors.New("no entries found for last research")
+	return []model.TrendEntry{}, errors.New("no entries found for last research")
 }
 
 // Given a slice of weekly entries, fills missing days between each couple of them
@@ -36,10 +36,10 @@ func GetTrend() ([]model.DbEntry, error) {
 //       elm[j] = avg(elm[j-1], elm[3])
 //       elm[k] = avg(elm[k+1], elm[3]); k--
 // Converts each date time.Time in string format yy-mm-dd for Cassandra.
-func fillMissingDays(entries []model.CsvEntry) ([]model.DbEntry, error) {
+func fillMissingDays(entries []model.CsvEntry) ([]model.TrendEntry, error) {
 	entriesNumber := len(entries)
 	if entriesNumber == 0 {
-		return []model.DbEntry{}, errors.New("no entries were appended")
+		return []model.TrendEntry{}, errors.New("no entries were appended")
 	}
 	var trend []model.CsvEntry
 	for i := 0; i <= entriesNumber - 2; i++ {
@@ -73,10 +73,10 @@ func fillMissingDays(entries []model.CsvEntry) ([]model.DbEntry, error) {
 		}
 		trend = append(trend, tmpTrend...)
 	}; if len(trend) == 0 {
-		return []model.DbEntry{}, errors.New("trend is empty")
+		return []model.TrendEntry{}, errors.New("trend is empty")
 	}
 	trend = append(trend, model.CsvEntry{ Value: entries[len(entries) - 1].Value, Date:  entries[len(entries) - 1].Date })
-	finalTrend := []model.DbEntry{}
+	finalTrend := []model.TrendEntry{}
 	for _, t := range trend {
 		finalTrend = append(finalTrend, dateToString(t))
 	}
@@ -84,12 +84,12 @@ func fillMissingDays(entries []model.CsvEntry) ([]model.DbEntry, error) {
 }
 
 // Returns a date in string format yy-mm-dd
-func dateToString(entry model.CsvEntry) model.DbEntry {
+func dateToString(entry model.CsvEntry) model.TrendEntry {
 	dateEntries := make([]string, 3)
 	dateEntries[0] = strconv.Itoa(entry.Date.Year())
 	dateEntries[1] = strconv.Itoa(int(entry.Date.Month())); if len(dateEntries[1]) == 1 { dateEntries[1] = "0" + dateEntries[1] }
 	dateEntries[2] = strconv.Itoa(entry.Date.Day()); if len(dateEntries[2]) == 1 { dateEntries[2] = "0" + dateEntries[2] }
-	m := model.DbEntry{ Value: entry.Value, Date: strings.Join(dateEntries, "-") }
+	m := model.TrendEntry{ Value: entry.Value, Date: strings.Join(dateEntries, "-") }
 	return m
 }
 

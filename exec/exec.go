@@ -5,7 +5,7 @@ import (
 	"os/exec"
 )
 
-var argv = [2]string{"python", "/home/andream16/go/src/github.com/andream16/yaggts-selenium/main.py"}
+var argv = [2]string{"python", "/home/andream16/go/src/github.com/andream16/yaggts/yaggts-selenium/main.py"}
 
 // Takes a query, calls a python script to download a csv from Google Trends.
 // Returns true if all went ok, false otherwise.
@@ -17,11 +17,8 @@ func DownloadCSV(query string) bool {
 
 // Executes the python script.
 func callScraper(query *string) bool {
-	_, e := func() ([]byte, error) {
-		return func() *exec.Cmd {
-			return exec.Command(argv[0], argv[1], escapeString(query))
-		}().Output()
-	}(); return e == nil
+	_, scraperError := exec.Command(argv[0], argv[1], escapeString(query)).Output()
+	return scraperError == nil
 }
 
 // Escapes the query.
